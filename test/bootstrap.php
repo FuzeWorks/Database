@@ -44,14 +44,14 @@ $configurator->setLogDirectory(dirname(__FILE__) . '/temp');
 
 // Other values
 $configurator->setTimeZone('Europe/Amsterdam');
-$configurator->enableDebugMode(true);
+$configurator->enableDebugMode(true)->setDebugAddress('ALL');
 
 // Implement the Layout Component
 $configurator->addComponent(new \FuzeWorks\DatabaseComponent());
+$configurator->addComponent(new \FuzeWorks\TracyComponent());
 
 // Create container
 $container = $configurator->createContainer();
-$container->init();
 
 // And return the result
 return $container;

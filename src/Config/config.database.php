@@ -1,10 +1,10 @@
 <?php
 /**
- * FuzeWorks Framework Database Component.
+ * FuzeWorks Component.
  *
  * The FuzeWorks PHP FrameWork
  *
- * Copyright (C) 2013-2018 TechFuze
+ * Copyright (C) 2013-2019 TechFuze
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,45 +25,30 @@
  * SOFTWARE.
  *
  * @author    TechFuze
- * @copyright Copyright (c) 2013 - 2018, TechFuze. (http://techfuze.net)
+ * @copyright Copyright (c) 2013 - 2019, TechFuze. (http://techfuze.net)
  * @license   https://opensource.org/licenses/MIT MIT License
  *
  * @link  http://techfuze.net/fuzeworks
- * @since Version 1.1.4
+ * @since Version 1.2.0
  *
- * @version Version 1.1.4
+ * @version Version 1.2.0
  */
 
-/**
- * Oracle Utility Class
- *
- * Converted from CodeIgniter.
- *
- * @package		FuzeWorks
- * @category	Database
- * @author		EllisLab Dev Team
- * @link		https://codeigniter.com/user_guide/database/
- * @license		http://opensource.org/licenses/MIT	MIT License
- */
-class FW_DB_oci8_utility extends FW_DB_utility {
-
-	/**
-	 * List databases statement
-	 *
-	 * @var	string
-	 */
-	protected $_list_databases	= 'SELECT username FROM dba_users'; // Schemas are actual usernames
-
-	/**
-	 * Export
-	 *
-	 * @param	array	$params	Preferences
-	 * @return	mixed
-	 */
-	protected function _backup($params = array())
-	{
-		// Currently unsupported
-		return $this->db->display_error('db_unsupported_feature');
-	}
-
-}
+return [
+    'active_group' => 'default',
+    'connections' => [
+        'default' => [
+            'engineName' =>     'pdo',
+            'dsn' =>            '',
+            'hostname' =>       '',
+            'username' =>       '',
+            'password' =>       '',
+            'database' =>       '',
+            'prefix' =>         '',
+            'persistent' =>     false,
+            'debug' =>          false,
+            'charset' =>        'utf8',
+            'collation' =>      'utf8_general_ci'
+        ]
+    ]
+];

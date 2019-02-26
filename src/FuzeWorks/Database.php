@@ -35,10 +35,11 @@
  */
 
 namespace FuzeWorks;
+use FuzeWorks\DatabaseEngine\iDatabaseEngine;
+use FuzeWorks\DatabaseEngine\PDOEngine;
+use FuzeWorks\Event\DatabaseLoadDriverEvent;
 use FuzeWorks\Exception\DatabaseException;
-use FW_DB;
-use FW_DB_forge;
-use FW_DB_utility;
+use FuzeWorks\Exception\EventException;
 
 /**
  * Database loading class
@@ -51,238 +52,189 @@ use FW_DB_utility;
  */
 class Database
 {
-    
+
     /**
-     * The default database forge.
-     * @var FW_DB|null
+     * Current database config as found the database config file with highest priority
+     *
+     * @var array
      */
-    protected static $defaultDB = null;
+    protected $dbConfig;
+
+    /**
+     * All engines that can be used for databases
+     *
+     * @var iDatabaseEngine[]
+     */
+    protected $engines = [];
+
+    /**
+     * Whether all DatabaseEngines have been loaded yet
+     *
+     * @var bool
+     */
+    protected $enginesLoaded = false;
 
     /**
      * Array of all the non-default databases
-     * @var array FW_DB|null
+     *
+     * @var iDatabaseEngine[]
      */    
-    protected static $databases = array();
-    
-    /**
-     * The default database forge.
-     * @var FW_DB_forge|null
-     */
-    protected static $defaultForge = null;
-    
-    /**
-     * Array of all the non-default databases forges.
-     * @var array FW_DB_forge|null
-     */    
-    protected static $forges = array();
-
-    /**
-     * The default database utility.
-     * @var FW_DB_utility|null
-     */
-    protected static $defaultUtil = null;
+    protected $connections = [];
     
     /**
      * Register with the TracyBridge upon startup
      */
-    public function __construct()
+    public function init()
     {
+        $this->dbConfig = Factory::getInstance()->config->get('database')->toArray();
+
         if (class_exists('Tracy\Debugger', true))
-        {
             DatabaseTracyBridge::register();
-        }
     }
 
     /**
-     * Retrieve a database using a DSN or the default configuration.
-     *
-     * If a string is provided like this: 'dbdriver://username:password@hostname/database',
-     * the string will be interpreted and converted into a database connection parameter array.
-     *
-     * If a string is provided with a name, like this: 'default' the 'default' connection from the
-     * configuration file will be loaded. If no string is provided the default database will be loaded.
-     *
-     * If the $newInstance is a true boolean, a new instance will be loaded instead of loading the
-     * default one. $newInstance will also make sure that the loaded database is not default one.
-     * This behaviour will be changed in the future.
-     *
-     *
-     * If $queryBuilder = false is provided, the database will load without a queryBuilder.
-     * By default the queryBuilder will load.
-     *
-     * @param string $parameters
-     * @param bool $newInstance
-     * @param bool $queryBuilder
-     * @return FW_DB|bool
-     * @throws DatabaseException
-     * @throws Exception\EventException
+     * Close connections when shutting down FuzeWorks
      */
-    public static function get($parameters = '', $newInstance = false, $queryBuilder = null)
+    public function __destruct()
+    {
+        foreach ($this->connections as $connection)
+            $connection->tearDown();
+    }
+
+    /**
+     *
+     * When providing a database using the databaseLoadDriverEvent, parameters and connectionName
+     * will be ignored.
+     *
+     * @param string $connectionName
+     * @param string $engineName
+     * @param array $parameters
+     * @return iDatabaseEngine
+     * @throws DatabaseException
+     * @throws EventException
+     */
+    public function get(string $connectionName = 'default', string $engineName = '', array $parameters = []): iDatabaseEngine
     {
         // Fire the event to allow settings to be changed
-        $event = Events::fireEvent('databaseLoadDriverEvent', $parameters, $newInstance, $queryBuilder);
+        /** @var DatabaseLoadDriverEvent $event */
+        $event = Events::fireEvent('databaseLoadDriverEvent', strtolower($engineName), $parameters, $connectionName);
         if ($event->isCancelled())
-        {
-            return false;
-        }
+            throw new DatabaseException("Could not get database. Cancelled by databaseLoadDriverEvent.");
 
-        // If an instance already exists and is requested, return it
-        if (isset($event->database) && empty($event->parameters))
+        /** @var iDatabaseEngine $engine */
+        // If a databaseEngine is provided by the event, use that. Otherwise search in the list of engines
+        if (is_object($event->databaseEngine) && $event->databaseEngine instanceof iDatabaseEngine)
         {
-            return self::$defaultDB = $event->database;
+            // Do intervention first
+            $engine = $this->connections[$event->connectionName] = $event->databaseEngine;
+            if (!$engine->isSetup())
+                $engine->setUp($event->parameters);
         }
-        elseif (isset($event->database) && !empty($event->parameters))
+        elseif (isset($this->connections[$event->connectionName]))
         {
-            return self::$databases[$event->parameters] = $event->database;
+            // Do already exists second
+            $engine = $this->connections[$event->connectionName];
         }
-        elseif (empty($event->parameters) && !$event->newInstance && is_object(self::$defaultDB) && ! empty(self::$defaultDB->conn_id))
+        elseif (!empty($event->engineName) && !empty($event->parameters))
         {
-            return $reference = self::$defaultDB;
-        }
-        elseif (!empty($event->parameters) && !$event->newInstance && isset(self::$databases[$event->parameters])) 
-        {
-            return $reference = self::$databases[$event->parameters];
-        }
-
-        // If a new instance is required, load it
-        require_once (dirname(__DIR__) . DS .   'Database'.DS.'DB.php');
-
-        if ($event->newInstance === TRUE)
-        {
-            $database = DB($event->parameters, $event->queryBuilder);
-        }
-        elseif (empty($event->parameters) && $event->newInstance === FALSE)
-        {
-            $database = self::$defaultDB = DB($event->parameters, $event->queryBuilder);
+            // Do provided config third
+            $engineClass = get_class($this->getEngine($event->engineName));
+            $engine = $this->connections[$event->connectionName] = new $engineClass();
+            $engine->setUp($event->parameters);
         }
         else
         {
-            $database = self::$databases[$event->parameters] = DB($event->parameters, $event->queryBuilder);
+            // Do external config fourth
+            if (!isset($this->dbConfig['connections'][$event->connectionName]))
+                throw new DatabaseException("Could not get database. Database not found in config.");
+
+            $engineName = $this->dbConfig['connections'][$event->connectionName]['engineName'];
+            $engineClass = get_class($this->getEngine($engineName));
+            $engine = $this->connections[$event->connectionName] = new $engineClass();
+            $engine->setUp($this->dbConfig['connections'][$event->connectionName]);
         }
 
         // Tie it into the Tracy Bar if available
         if (class_exists('\Tracy\Debugger', true))
-        {
-            DatabaseTracyBridge::registerDatabase($database);
-        }
+            DatabaseTracyBridge::registerDatabase($engine);
 
-        return $database;
+        return $engine;
     }
 
     /**
-     * Retrieves a database forge from the provided or default database.
+     * Get a loaded database engine.
      *
-     * If no database is provided, the default database will be used.
-     *
-     * @param FW_DB|null $database
-     * @param bool $newInstance
-     * @return FW_DB_forge
+     * @param string $engineName
+     * @return iDatabaseEngine
      * @throws DatabaseException
-     * @throws Exception\EventException
      */
-    public static function getForge($database = null, $newInstance = false)
+    public function getEngine(string $engineName): iDatabaseEngine
     {
-        // Fire the event to allow settings to be changed
-        $event = Events::fireEvent('databaseLoadForgeEvent', $database, $newInstance);
-        if ($event->isCancelled())
-        {
-            return false;
-        }
+        // First retrieve the name
+        $engineName = strtolower($engineName);
 
-        // First check if we're talking about the default forge and that one is already set
-        if (is_object($event->forge) && ($event->forge instanceof FW_DB_forge) )
-        {
-            return $event->forge;
-        }
-        elseif (is_object($event->database) && $event->database === self::$defaultDB && is_object(self::$defaultForge))
-        {
-            return $reference = self::$defaultForge;
-        }
-        elseif ( ! is_object($event->database) OR ! ($event->database instanceof FW_DB))
-        {
-            isset(self::$defaultDB) OR self::get('', false);
-            $database =& self::$defaultDB;
-        }
+        // Then load all engines
+        $this->loadDatabaseEngines();
 
-        require_once (dirname(__DIR__) . DS .   'Database'.DS.'DB_forge.php');
-        require_once(dirname(__DIR__) . DS .   'Database'.DS.'drivers'.DS.$database->dbdriver.DS.$database->dbdriver.'_forge.php');
+        // If the engine exists, return it
+        if (isset($this->engines[$engineName]))
+            return $this->engines[$engineName];
 
-        if ( ! empty($database->subdriver))
-        {
-            $driver_path = dirname(__DIR__) . DS .   'Database'.DS.'drivers'.DS.$database->dbdriver.DS.'subdrivers'.DS.$database->dbdriver.'_'.$database->subdriver.'_forge.php';
-            if (file_exists($driver_path))
-            {
-                require_once($driver_path);
-                $class = 'FW_DB_'.$database->dbdriver.'_'.$database->subdriver.'_forge';
-            }
-            else
-            {
-                throw new DatabaseException("Could not load forge. Driver file does not exist.", 1);
-            }
-        }
-        else
-        {
-            $class = 'FW_DB_'.$database->dbdriver.'_forge';
-        }
-
-        // Create a new instance of set the default database
-        if ($event->newInstance)
-        {
-            return new $class($database);
-        }
-        else 
-        {
-            return self::$defaultForge = new $class($database);
-        }
+        // Otherwise throw exception
+        throw new DatabaseException("Could not get engine. Engine does not exist.");
     }
 
     /**
-     * Retrieves a database utility from the provided or default database.
+     * Register a new database engine
      *
-     * If no database is provided, the default database will be used.
-     *
-     * @param FW_DB|null $database
-     * @param bool $newInstance
-     * @return FW_DB_utility
+     * @param iDatabaseEngine $databaseEngine
+     * @return bool
      * @throws DatabaseException
-     * @throws Exception\EventException
      */
-    public static function getUtil($database = null, $newInstance = false)
+    public function registerEngine(iDatabaseEngine $databaseEngine): bool
     {
-        // Fire the event to allow settings to be changed
-        $event = Events::fireEvent('databaseLoadUtilEvent', $database, $newInstance);
-        if ($event->isCancelled())
-        {
-            return false;
-        }
+        // First retrieve the name
+        $engineName = strtolower($databaseEngine->getName());
 
-        // First check if we're talking about the default util and that one is already set
-        if (is_object($event->util) && ($event->util instanceof FW_DB_utility))
-        {
-            return $event->util;
-        }
-        elseif (is_object($event->database) && $event->database === self::$defaultDB && is_object(self::$defaultUtil))
-        {
-            return $reference = self::$defaultUtil;
-        }
+        // Check if the engine is already set
+        if (isset($this->engines[$engineName]))
+            throw new DatabaseException("Could not register engine. Engine '".$engineName."' already registered.");
 
-        if ( ! is_object($event->database) OR ! ($event->database instanceof FW_DB))
-        {
-            isset(self::$defaultDB) OR self::get('', false);
-            $database = & self::$defaultDB;
-        }
 
-        require_once (dirname(__DIR__) . DS .   'Database'.DS.'DB_utility.php');
-        require_once(dirname(__DIR__) . DS .   'Database'.DS.'drivers'.DS.$database->dbdriver.DS.$database->dbdriver.'_utility.php');
-        $class = 'FW_DB_'.$database->dbdriver.'_utility';
+        // Install it
+        $this->engines[$engineName] = $databaseEngine;
+        Logger::log("Registered Database Engine: '" . $engineName . "'");
 
-        if ($event->newInstance)
-        {
-            return new $class($database);
-        }      
-        else
-        {
-            return self::$defaultUtil = new $class($database);
-        }
+        return true;
     }
+
+    /**
+     * Load all databaseEngines by firing a databaseLoadEngineEvent and by loading all the default engines
+     *
+     * @return bool
+     * @throws DatabaseException
+     */
+    protected function loadDatabaseEngines(): bool
+    {
+        // If already loaded, skip
+        if ($this->enginesLoaded)
+            return false;
+
+        // Fire engine event
+        try {
+            Events::fireEvent('databaseLoadEngineEvent');
+        } catch (EventException $e) {
+            throw new DatabaseException("Could not load database engines. databaseLoadEngineEvent threw exception: '" . $e->getMessage() . "'");
+        }
+
+        // Load the engines provided by the DatabaseComponent
+        $this->registerEngine(new PDOEngine());
+
+        // And save results
+        $this->enginesLoaded = true;
+        return true;
+    }
+
+
+
 }

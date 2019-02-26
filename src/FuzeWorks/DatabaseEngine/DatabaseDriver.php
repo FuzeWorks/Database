@@ -1,10 +1,10 @@
 <?php
 /**
- * FuzeWorks Framework Database Component.
+ * FuzeWorks Component.
  *
  * The FuzeWorks PHP FrameWork
  *
- * Copyright (C) 2013-2018 TechFuze
+ * Copyright (C) 2013-2019 TechFuze
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,39 +25,62 @@
  * SOFTWARE.
  *
  * @author    TechFuze
- * @copyright Copyright (c) 2013 - 2018, TechFuze. (http://techfuze.net)
+ * @copyright Copyright (c) 2013 - 2019, TechFuze. (http://techfuze.net)
  * @license   https://opensource.org/licenses/MIT MIT License
  *
  * @link  http://techfuze.net/fuzeworks
- * @since Version 1.1.4
+ * @since Version 1.2.0
  *
- * @version Version 1.1.4
+ * @version Version 1.2.0
  */
+
+namespace FuzeWorks\DatabaseEngine;
 
 /**
- * PDO Utility Class
- *
- * Converted from CodeIgniter.
- *
- * @package		FuzeWorks
- * @subpackage	Drivers
- * @category	Database
- * @author		EllisLab Dev Team
- * @link		https://codeigniter.com/database/
- * @license		http://opensource.org/licenses/MIT	MIT License
+ * Class DatabaseDriver
  */
-class FW_DB_pdo_utility extends FW_DB_utility {
+abstract class DatabaseDriver
+{
 
-	/**
-	 * Export
-	 *
-	 * @param	array	$params	Preferences
-	 * @return	mixed
-	 */
-	protected function _backup($params = array())
-	{
-		// Currently unsupported
-		return $this->db->display_error('db_unsupported_feature');
-	}
+    // --- Query Logging --------------------------------------------------
+
+    /**
+     * All queries performed by this engine
+     *
+     * @var array
+     */
+    private $queries = [];
+
+    /**
+     * Log information about a query. Used for debugging issues
+     *
+     * @param string $queryString
+     * @param array $queryData
+     * @param float $queryTimings
+     * @param array $queryError
+     */
+    protected function logQuery(string $queryString, array $queryData, float $queryTimings, array $queryError = [])
+    {
+        $this->queries[] = [
+            'queryString' => $queryString,
+            'queryData' => $queryData,
+            'queryTimings' => $queryTimings,
+            'queryError' => $queryError
+        ];
+    }
+
+    /**
+     * Get all performed queries and logged data
+     *
+     * @return array
+     */
+    public function getQueries()
+    {
+        return $this->queries;
+    }
+
+    // --------------------------------------------------------------------
+
+
 
 }

@@ -61,8 +61,5 @@ abstract class DatabaseTestAbstract extends TestCase
 
         // Re-enable events, in case they have been disabled
         Events::enable();
-
-        // Reset the HTTP status code
-        Core::$http_status_code = 200;
     }
 }

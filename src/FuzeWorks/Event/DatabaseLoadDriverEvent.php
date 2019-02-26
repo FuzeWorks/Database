@@ -32,6 +32,7 @@
 
 namespace FuzeWorks\Event;
 
+use FuzeWorks\DatabaseEngine\iDatabaseEngine;
 use FuzeWorks\Event;
 
 /**
@@ -51,35 +52,35 @@ class DatabaseLoadDriverEvent extends Event
      * the parameters variable is empty. If there is a string in parameters this database shall be identified as
      * such. 
      *
-     * @var FW_DB|null
+     * @var iDatabaseEngine|null
      */
-    public $database = null;
+    public $databaseEngine = null;
+
+    /**
+     * The name of the engine to be loaded
+     *
+     * @var string
+     */
+    public $engineName;
 
     /**
      * Parameters of the database to be loaded
      *
-     * @var string
+     * @var array
      */
     public $parameters;
 
     /**
-     * Whether a database instance shall be cloned if existing
+     * Database group to load
      *
      * @var bool
      */
-    public $newInstance;
+    public $connectionName;
 
-    /**
-     * Whether to attach the queryBuilder to the database driver
-     *
-     * @var null|bool
-     */
-    public $queryBuilder;
-
-    public function init($parameters = '', $newInstance = false, $queryBuilder = null)
+    public function init(string $engineName, array $parameters, string $connectionName)
     {
+        $this->engineName = $engineName;
         $this->parameters = $parameters;
-        $this->newInstance = $newInstance;
-        $this->queryBuilder = $queryBuilder;
+        $this->connectionName = $connectionName;
     }
 }

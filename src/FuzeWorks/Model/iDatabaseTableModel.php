@@ -1,10 +1,10 @@
 <?php
 /**
- * FuzeWorks Framework Database Component.
+ * FuzeWorks Component.
  *
  * The FuzeWorks PHP FrameWork
  *
- * Copyright (C) 2013-2018 TechFuze
+ * Copyright (C) 2013-2019 TechFuze
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,56 +25,22 @@
  * SOFTWARE.
  *
  * @author    TechFuze
- * @copyright Copyright (c) 2013 - 2018, TechFuze. (http://techfuze.net)
+ * @copyright Copyright (c) 2013 - 2019, TechFuze. (http://techfuze.net)
  * @license   https://opensource.org/licenses/MIT MIT License
  *
  * @link  http://techfuze.net/fuzeworks
- * @since Version 1.1.4
+ * @since Version 1.2.0
  *
- * @version Version 1.1.4
+ * @version Version 1.2.0
  */
 
-/**
- * CUBRID Utility Class
- *
- * Converted from CodeIgniter.
- *
- * @package		FuzeWorks
- * @category	Database
- * @author		Esen Sagynov
- * @link		https://codeigniter.com/user_guide/database/
- * @license		http://opensource.org/licenses/MIT	MIT License
- */
-class FW_DB_cubrid_utility extends FW_DB_utility {
+namespace FuzeWorks\Model;
 
-	/**
-	 * List databases
-	 *
-	 * @return	array
-	 */
-	public function list_databases()
-	{
-		if (isset($this->db->data_cache['db_names']))
-		{
-			return $this->db->data_cache['db_names'];
-		}
 
-		return $this->db->data_cache['db_names'] = cubrid_list_dbs($this->db->conn_id);
-	}
-
-	// --------------------------------------------------------------------
-
-	/**
-	 * CUBRID Export
-	 *
-	 * @param	array	Preferences
-	 * @return	mixed
-	 */
-	protected function _backup($params = array())
-	{
-		// No SQL based support in CUBRID as of version 8.4.0. Database or
-		// table backup can be performed using CUBRID Manager
-		// database administration tool.
-		return $this->db->display_error('db_unsupported_feature');
-	}
+interface iDatabaseTableModel
+{
+    public function create(array $data, array $options = []): bool;
+    public function read(array $filter = [], array $options = []): array;
+    public function update(array $data, array $filter, array $options = []): bool;
+    public function delete(array $filter, array $options = []): bool;
 }

@@ -47,10 +47,29 @@ namespace FuzeWorks;
 class DatabaseComponent implements iComponent
 {
 
+    public function getName(): string
+    {
+        return "DatabaseComponent";
+    }
+
     public function getClasses(): array
     {
         return [
-            'database' => '\FuzeWorks\Database'
+            'databases' => '\FuzeWorks\Database'
         ];
+    }
+
+    public function onAddComponent(Configurator $configurator)
+    {
+        // Add fallback database config
+        $configurator->addDirectory(
+            dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Config',
+            'config',
+            Priority::LOWEST
+        );
+    }
+
+    public function onCreateContainer(Factory $container)
+    {
     }
 }

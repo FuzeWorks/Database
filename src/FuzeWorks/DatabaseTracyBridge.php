@@ -110,9 +110,7 @@ class DatabaseTracyBridge implements IBarPanel
 
 				// If errors are found, set this at the top of the array
 				if ($database->query_data[$key]['error']['code'] != 0)
-				{
 					$results['errorsFound'] = true;
-				}
 			}
 		}
 

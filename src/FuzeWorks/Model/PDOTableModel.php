@@ -140,6 +140,14 @@ class PDOTableModel implements iDatabaseTableModel
         return true;
     }
 
+    /**
+     * @todo: WRITE ABOUT FETCHMODE
+     *
+     * @param array $filter
+     * @param array $options
+     * @return array
+     * @throws DatabaseException
+     */
     public function read(array $filter = [], array $options = []): array
     {
         // Determine which fields to select. If none provided, select all
@@ -158,7 +166,8 @@ class PDOTableModel implements iDatabaseTableModel
         $this->lastStatement->execute($filter);
 
         // And return the result
-        return $this->lastStatement->fetchAll(PDO::FETCH_ASSOC);
+        $fetchMode = (isset($options['fetchMode']) ? $options['fetchMode'] : PDO::FETCH_ASSOC);
+        return $this->lastStatement->fetchAll($fetchMode);
     }
 
     public function update(array $data, array $filter, array $options = []): bool

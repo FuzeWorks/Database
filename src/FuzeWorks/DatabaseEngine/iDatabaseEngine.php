@@ -40,6 +40,7 @@ namespace FuzeWorks\DatabaseEngine;
 interface iDatabaseEngine
 {
     public function getName(): string;
+    public function getConnectionDescription(): string;
     public function isSetup(): bool;
     public function setUp(array $parameters): bool;
     public function tearDown(): bool;

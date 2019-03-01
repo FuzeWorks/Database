@@ -35,8 +35,10 @@
  */
 
 namespace FuzeWorks;
+use FuzeWorks\DatabaseEngine\iDatabaseEngine;
 use Tracy\IBarPanel;
 use Tracy\Debugger;
+use Tracy\Dumper;
 
 /**
  * DatabaseTracyBridge Class.
@@ -47,12 +49,16 @@ use Tracy\Debugger;
  * It hooks into database usage and provides the information on the Tracy Bar panel. 
  *
  * @author    Abel Hoogeveen <abel@techfuze.net>
- * @copyright Copyright (c) 2013 - 2017, TechFuze. (http://techfuze.net)
+ * @copyright Copyright (c) 2013 - 2019, TechFuze. (http://techfuze.net)
  */
 class DatabaseTracyBridge implements IBarPanel
 {
 
+    /**
+     * @var iDatabaseEngine[]
+     */
 	public static $databases = array();
+
 	protected $results = array();
 
 	public static function register()
@@ -62,7 +68,7 @@ class DatabaseTracyBridge implements IBarPanel
 		$bar->addPanel($class);
 	}
 
-	public static function registerDatabase($database)
+	public static function registerDatabase(iDatabaseEngine $database)
 	{
 		self::$databases[] = $database;
 	}
@@ -86,41 +92,48 @@ class DatabaseTracyBridge implements IBarPanel
 			// Increase total databases
 			$results['dbCount']++;
 
-			// First determine the ID
-			if (!empty($database->dsn))
-			{
-				$databaseId = $database->dsn;
-			}
-			elseif (!empty($database->username) && !empty($database->database) && !empty($database->hostname))
-			{
-				$databaseId = $database->username . '@' . $database->hostname . '/' . $database->database;
-			}
-			else
-			{
-				$databaseId = spl_object_hash($database);
-			}
+            // First determine the ID
+			$databaseId = $database->getConnectionDescription();
 
 			// Go through all queries
-			foreach ($database->queries as $key => $query) {
-				$results['queryCount']++;
-				$results['queryTimings'] += $database->query_times[$key];
-				$results['queries'][$databaseId][$key]['query'] = $query;
-				$results['queries'][$databaseId][$key]['timings'] = $database->query_times[$key];
-				$results['queries'][$databaseId][$key]['data'] = $database->query_data[$key];
+            if (!method_exists($database, 'getQueries'))
+            {
+                continue;
+            }
 
-				// If errors are found, set this at the top of the array
-				if ($database->query_data[$key]['error']['code'] != 0)
-					$results['errorsFound'] = true;
-			}
+            foreach ($database->getQueries() as $query)
+            {
+                $results['queryTimings'] += $query['queryTimings'];
+                $key = $query['queryString'];
+                if (!isset($results['queries'][$databaseId][$key]))
+                    $results['queryCount']++;
+
+                $results['queries'][$databaseId][$key]['query'] = $query['queryString'];
+                $results['queries'][$databaseId][$key]['timings'] = $query['queryTimings'];
+                $results['queries'][$databaseId][$key]['errors'] = $query['queryError'];
+
+                if (!isset($results['queries'][$databaseId][$key]['data']))
+                    $results['queries'][$databaseId][$key]['data'] = $query['queryData'];
+                else
+                    $results['queries'][$databaseId][$key]['data'] += $query['queryData'];
+
+                if (!empty($query['queryError']))
+                    $results['errorsFound'] = true;
+            }
 		}
 
 		// Limit the amount in order to keep things readable
 		$results['queryCountProvided'] = 0;
-		foreach ($results['queries'] as $id => $database) {
-			$results['queries'][$id] = array_reverse(array_slice($database, -10));
-			$results['queryCountProvided'] += count($results['queries'][$id]);
-		}
-		$results = array_slice($results, -10);
+		if (isset($results['queries']))
+        {
+            foreach ($results['queries'] as $id => $database) {
+                $results['queries'][$id] = array_reverse(array_slice($database, -10));
+                $results['queryCountProvided'] += count($results['queries'][$id]);
+            }
+            $results = array_slice($results, -10);
+        }
+
+		//dump($results['queries']['mysql:host=localhost;dbname=hello']);
 
 		return $this->results = $results;
 	}

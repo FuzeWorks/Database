@@ -55,11 +55,11 @@ abstract class DatabaseDriver
      * Log information about a query. Used for debugging issues
      *
      * @param string $queryString
-     * @param array $queryData
+     * @param int $queryData
      * @param float $queryTimings
      * @param array $queryError
      */
-    protected function logQuery(string $queryString, array $queryData, float $queryTimings, array $queryError = [])
+    protected function logQuery(string $queryString, int $queryData, float $queryTimings, array $queryError = [])
     {
         $this->queries[] = [
             'queryString' => $queryString,

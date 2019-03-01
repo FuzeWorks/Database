@@ -69,6 +69,13 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
     protected $pdoConnection;
 
     /**
+     * Connection string with the database
+     *
+     * @var string
+     */
+    protected $dsn;
+
+    /**
      * Whether a transaction has failed and should be reverted in the future
      *
      * @var bool
@@ -95,6 +102,11 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
         return 'pdo';
     }
 
+    public function getConnectionDescription(): string
+    {
+        return is_null($this->dsn) ? 'none' : $this->dsn;
+    }
+
     /**
      * Whether the database connection has been set up yet
      *
@@ -115,17 +127,20 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
     public function setUp(array $parameters): bool
     {
         // Prepare variables for connection
-        $dsn = isset($parameters['dsn']) ? $parameters['dsn'] : null;
+        $this->dsn = isset($parameters['dsn']) ? $parameters['dsn'] : null;
         $username = isset($parameters['username']) ? $parameters['username'] : '';
         $password = isset($parameters['password']) ? $parameters['password'] : '';
 
         // Don't attempt connection without DSN
-        if (is_null($dsn))
+        if (is_null($this->dsn))
             throw new DatabaseException("Could not setUp PDOEngine. No DSN provided");
+
+        // Set some base parameters which are required for FuzeWorks
+        $parameters[PDO::ATTR_ERRMODE] = PDO::ERRMODE_SILENT;
 
         // Attempt to connect. Throw exception on failure
         try {
-            $this->pdoConnection = new PDO($dsn, $username, $password, $parameters);
+            $this->pdoConnection = new PDO($this->dsn, $username, $password, $parameters);
         } catch (PDOException $e) {
             throw new DatabaseException("Could not setUp PDOEngine. PDO threw PDOException: '" . $e->getMessage() . "'");
         }
@@ -192,12 +207,13 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
      *
      * @internal
      * @param string $queryString
-     * @param array $queryData
+     * @param int $queryData
      * @param float $queryTimings
      */
-    public function logPDOQuery(string $queryString, array $queryData, float $queryTimings)
+    public function logPDOQuery(string $queryString, int $queryData, float $queryTimings, $errorInfo = [])
     {
-        $this->logQuery($queryString, $queryData, $queryTimings, $this->error());
+        $errorInfo = empty($errorInfo) ? $this->error() : $errorInfo;
+        $this->logQuery($queryString, $queryData, $queryTimings, $errorInfo);
     }
 
     /**
@@ -257,9 +273,9 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
      */
     protected function error(): array
     {
-        $error = ['code' => '00000', 'message' => ''];
+        $error = [];
         $pdoError = $this->pdoConnection->errorInfo();
-        if (empty($pdoError[0]))
+        if (empty($pdoError[0]) || $pdoError[0] == '00000')
             return $error;
 
         $error['code'] = isset($pdoError[1]) ? $pdoError[0] . '/' . $pdoError[1] : $pdoError[0];

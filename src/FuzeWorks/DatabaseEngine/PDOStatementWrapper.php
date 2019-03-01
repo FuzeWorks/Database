@@ -60,19 +60,20 @@ class PDOStatementWrapper
         $this->logQueryCallable = $logQueryCallable;
     }
 
-    public function execute(array $input_parameters = null)
+    public function execute(array $input_parameters = [])
     {
         // Run the query and benchmark the time
         $benchmarkStart = microtime(true);
         $result = $this->statement->execute($input_parameters);
         $benchmarkEnd = microtime(true) - $benchmarkStart;
-        call_user_func_array($this->logQueryCallable, [$this->statement->queryString, $input_parameters, $benchmarkEnd]);
+        $errInfo = $this->error();
+        call_user_func_array($this->logQueryCallable, [$this->statement->queryString, $this->statement->rowCount(), $benchmarkEnd, $errInfo]);
 
         // If the query failed, throw an error
         if ($result === false)
         {
             // And throw an exception
-            throw new DatabaseException("Could not run query. Database returned an error. Error code: " . $this->error()['code']);
+            throw new DatabaseException("Could not run query. Database returned an error. Error code: " . $errInfo['code']);
         }
 
         return $result;
@@ -85,9 +86,9 @@ class PDOStatementWrapper
      */
     private function error(): array
     {
-        $error = ['code' => '00000', 'message' => ''];
+        $error = [];
         $pdoError = $this->statement->errorInfo();
-        if (empty($pdoError[0]))
+        if (empty($pdoError[0]) || $pdoError[0] == '00000')
             return $error;
 
         $error['code'] = isset($pdoError[1]) ? $pdoError[0] . '/' . $pdoError[1] : $pdoError[0];

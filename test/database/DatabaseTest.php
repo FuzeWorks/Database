@@ -56,12 +56,5 @@ class DatabaseTest extends DatabaseTestAbstract
         $this->database = Factory::getInstance()->database;
     }
 
-    /**
-     * @expectedException \FuzeWorks\Exception\DatabaseException
-     */
-    public function testInvalidDb()
-    {
-        $this->database->get('unknown://unknown:password@unknown/database');
-    }
 
 }

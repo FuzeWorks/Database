@@ -167,6 +167,9 @@ class PDOTableModel implements iDatabaseTableModel
 
         // And return the result
         $fetchMode = (isset($options['fetchMode']) ? $options['fetchMode'] : PDO::FETCH_ASSOC);
+        if (is_array($fetchMode))
+            return $this->lastStatement->fetchAll(...$fetchMode);
+
         return $this->lastStatement->fetchAll($fetchMode);
     }
 

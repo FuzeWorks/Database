@@ -44,4 +44,24 @@ interface iDatabaseEngine
     public function isSetup(): bool;
     public function setUp(array $parameters): bool;
     public function tearDown(): bool;
+
+    /**
+     * @return bool
+     */
+    public function transactionStart(): bool;
+
+    /**
+     * @return bool
+     */
+    public function transactionEnd(): bool;
+
+    /**
+     * @return bool
+     */
+    public function transactionCommit(): bool;
+
+    /**
+     * @return bool
+     */
+    public function transactionRollback(): bool;
 }

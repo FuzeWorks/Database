@@ -54,10 +54,16 @@ class PDOStatementWrapper
      */
     private $logQueryCallable;
 
-    public function __construct(PDOStatement $statement, callable $logQueryCallable)
+    /**
+     * @var PDOEngine
+     */
+    private $engine;
+
+    public function __construct(PDOStatement $statement, callable $logQueryCallable, PDOEngine $engine)
     {
         $this->statement = $statement;
         $this->logQueryCallable = $logQueryCallable;
+        $this->engine = $engine;
     }
 
     public function execute(array $input_parameters = [])
@@ -72,6 +78,8 @@ class PDOStatementWrapper
         // If the query failed, throw an error
         if ($result === false)
         {
+            $this->engine->transactionFail();
+
             // And throw an exception
             throw new DatabaseException("Could not run query. Database returned an error. Error code: " . $errInfo['code']);
         }

@@ -4,7 +4,7 @@
  *
  * The FuzeWorks PHP FrameWork
  *
- * Copyright (C) 2013-2018 TechFuze
+ * Copyright (C) 2013-2019 TechFuze
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,13 +25,13 @@
  * SOFTWARE.
  *
  * @author    TechFuze
- * @copyright Copyright (c) 2013 - 2018, TechFuze. (http://techfuze.net)
+ * @copyright Copyright (c) 2013 - 2019, TechFuze. (http://techfuze.net)
  * @license   https://opensource.org/licenses/MIT MIT License
  *
  * @link  http://techfuze.net/fuzeworks
- * @since Version 1.1.4
+ * @since Version 1.2.0
  *
- * @version Version 1.1.4
+ * @version Version 1.2.0
  */
 
 namespace FuzeWorks\Exception;
@@ -40,8 +40,8 @@ namespace FuzeWorks\Exception;
  * Class DatabaseException.
  *
  * @author    Abel Hoogeveen <abel@techfuze.net>
- * @copyright Copyright (c) 2013 - 2018, TechFuze. (http://techfuze.net)
+ * @copyright Copyright (c) 2013 - 2019, TechFuze. (http://techfuze.net)
  */
-class DatabaseException extends Exception
+class TransactionException extends Exception
 {
 }

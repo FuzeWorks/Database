@@ -36,6 +36,7 @@
 
 namespace FuzeWorks;
 use FuzeWorks\DatabaseEngine\iDatabaseEngine;
+use FuzeWorks\DatabaseEngine\MongoEngine;
 use FuzeWorks\DatabaseEngine\PDOEngine;
 use FuzeWorks\Event\DatabaseLoadDriverEvent;
 use FuzeWorks\Exception\DatabaseException;
@@ -111,13 +112,16 @@ class Database
      * @param array $parameters
      * @return iDatabaseEngine
      * @throws DatabaseException
-     * @throws EventException
      */
     public function get(string $connectionName = 'default', string $engineName = '', array $parameters = []): iDatabaseEngine
     {
         // Fire the event to allow settings to be changed
         /** @var DatabaseLoadDriverEvent $event */
-        $event = Events::fireEvent('databaseLoadDriverEvent', strtolower($engineName), $parameters, $connectionName);
+        try {
+            $event = Events::fireEvent('databaseLoadDriverEvent', strtolower($engineName), $parameters, $connectionName);
+        } catch (EventException $e) {
+            throw new DatabaseException("Could not get database. databaseLoadDriverEvent threw exception: '".$e->getMessage()."'");
+        }
         if ($event->isCancelled())
             throw new DatabaseException("Could not get database. Cancelled by databaseLoadDriverEvent.");
 
@@ -229,6 +233,7 @@ class Database
 
         // Load the engines provided by the DatabaseComponent
         $this->registerEngine(new PDOEngine());
+        $this->registerEngine(new MongoEngine());
 
         // And save results
         $this->enginesLoaded = true;

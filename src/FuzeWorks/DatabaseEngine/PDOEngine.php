@@ -36,6 +36,7 @@
 
 namespace FuzeWorks\DatabaseEngine;
 use FuzeWorks\Exception\DatabaseException;
+use FuzeWorks\Exception\TransactionException;
 use FuzeWorks\Logger;
 use PDO;
 use PDOException;
@@ -156,6 +157,7 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
      * Method called by \FuzeWorks\Database to tear down the database connection upon shutdown
      *
      * @return bool
+     * @throws TransactionException
      */
     public function tearDown(): bool
     {
@@ -209,8 +211,9 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
      * @param string $queryString
      * @param int $queryData
      * @param float $queryTimings
+     * @param array $errorInfo
      */
-    public function logPDOQuery(string $queryString, int $queryData, float $queryTimings, $errorInfo = [])
+    public function logPDOQuery(string $queryString, int $queryData, float $queryTimings, array $errorInfo = [])
     {
         $errorInfo = empty($errorInfo) ? $this->error() : $errorInfo;
         $this->logQuery($queryString, $queryData, $queryTimings, $errorInfo);
@@ -236,7 +239,7 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
         $benchmarkEnd = microtime(true) - $benchmarkStart;
 
         // Log the query
-        $this->logPDOQuery($sql, [], $benchmarkEnd);
+        $this->logPDOQuery($sql, 0, $benchmarkEnd);
 
         // If the query failed, handle the error
         if ($result === false)
@@ -262,7 +265,8 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
     {
         return new PDOStatementWrapper(
             $this->pdoConnection->prepare($statement, $driver_options),
-            array($this, 'logPDOQuery')
+            array($this, 'logPDOQuery'),
+            $this
         );
     }
 
@@ -289,10 +293,15 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
      * Start a transaction
      *
      * @return bool
+     * @throws TransactionException
      */
     public function transactionStart(): bool
     {
-        return $this->pdoConnection->beginTransaction();
+        try {
+            return $this->pdoConnection->beginTransaction();
+        } catch (PDOException $e) {
+            throw new TransactionException("Could not start transaction. PDO threw PDOException: '" . $e->getMessage() . "'");
+        }
     }
 
     /**
@@ -302,6 +311,7 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
      * Automatically rolls back changes if an error occurs with a query
      *
      * @return bool
+     * @throws TransactionException
      */
     public function transactionEnd(): bool
     {
@@ -327,19 +337,37 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
      * Commit a transaction
      *
      * @return bool
+     * @throws TransactionException
      */
     public function transactionCommit(): bool
     {
-        return $this->pdoConnection->commit();
+        try {
+            return $this->pdoConnection->commit();
+        } catch (PDOException $e) {
+            throw new TransactionException("Could not commit transaction. PDO threw PDOException: '" . $e->getMessage() . "'");
+        }
     }
 
     /**
      * Roll back a transaction
      *
      * @return bool
+     * @throws TransactionException
      */
     public function transactionRollback(): bool
     {
-        return $this->pdoConnection->rollBack();
+        try {
+            return $this->pdoConnection->rollBack();
+        } catch (PDOException $e) {
+            throw new TransactionException("Could not rollback transaction. PDO threw PDOException: '" . $e->getMessage() . "'");
+        }
+    }
+
+    /**
+     * @internal
+     */
+    public function transactionFail()
+    {
+        $this->transactionFailed = true;
     }
 }

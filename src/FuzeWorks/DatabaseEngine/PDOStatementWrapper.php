@@ -38,7 +38,33 @@ namespace FuzeWorks\DatabaseEngine;
 
 use FuzeWorks\Exception\DatabaseException;
 use PDOStatement;
+use PDO;
 
+/**
+ * Class PDOStatementWrapper
+ *
+ * Provides a wrapper for PDOStatement objects so that these can be logged
+ *
+ * The following additional methods can be accessed through the __call method:
+ * @method bool bindColumn(mixed $column, mixed &$param, int $type = null, int $maxlen = null, mixed $driverdata = null)
+ * @method bool bindParam(mixed $parameter, mixed &$variable, int $data_type = PDO::PARAM_STR, int $length = null, mixed $driver_options = null)
+ * @method bool bindValue(mixed $parameter, mixed $value, int $data_type = PDO::PARAM_STR)
+ * @method bool closeCursor()
+ * @method int columnCount()
+ * @method void debugDumpParams()
+ * @method string errorCode()
+ * @method array errorInfo()
+ * @method mixed fetch(int $fetch_style = null, int $cursor_orientation = PDO::FETCH_ORI_NEXT, int $cursor_offset = 0)
+ * @method array fetchAll(int $fetch_style = null, mixed $fetch_argument = null, array $ctor_args = array())
+ * @method mixed fetchColumn(int $column_number = 0)
+ * @method mixed fetchObject(string $class_name = "stdClass", array $ctor_args = array())
+ * @method mixed getAttribute(int $attribute)
+ * @method array getColumnMeta(int $column)
+ * @method bool nextRowset()
+ * @method int rowCount()
+ * @method bool setAttribute(int $attribute, mixed $value)
+ * @method bool setFetchMode(int $mode)
+ */
 class PDOStatementWrapper
 {
 
@@ -66,6 +92,11 @@ class PDOStatementWrapper
         $this->engine = $engine;
     }
 
+    /**
+     * @param array $input_parameters
+     * @return bool
+     * @throws DatabaseException
+     */
     public function execute(array $input_parameters = [])
     {
         // Run the query and benchmark the time

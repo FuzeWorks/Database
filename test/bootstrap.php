@@ -34,6 +34,9 @@
  * @version Version 1.1.4
  */
 
+use FuzeWorks\DatabaseComponent;
+use FuzeWorks\TracyComponent;
+
 require_once(dirname(__DIR__) . '/vendor/autoload.php');
 
 $configurator = new FuzeWorks\Configurator();
@@ -47,8 +50,8 @@ $configurator->setTimeZone('Europe/Amsterdam');
 $configurator->enableDebugMode(true)->setDebugAddress('ALL');
 
 // Implement the Layout Component
-$configurator->addComponent(new \FuzeWorks\DatabaseComponent());
-$configurator->addComponent(new \FuzeWorks\TracyComponent());
+$configurator->addComponent(new DatabaseComponent());
+$configurator->addComponent(new TracyComponent());
 
 // Create container
 $container = $configurator->createContainer();

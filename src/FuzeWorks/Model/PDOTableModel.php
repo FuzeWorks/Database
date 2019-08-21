@@ -36,13 +36,11 @@
 
 namespace FuzeWorks\Model;
 
-use FuzeWorks\Database;
+use FuzeWorks\DatabaseEngine\iDatabaseEngine;
 use FuzeWorks\DatabaseEngine\PDOEngine;
 use FuzeWorks\DatabaseEngine\PDOStatementWrapper;
 use FuzeWorks\Exception\DatabaseException;
-use FuzeWorks\Exception\EventException;
 use FuzeWorks\Exception\TransactionException;
-use FuzeWorks\Factory;
 use PDO;
 use PDOStatement;
 
@@ -63,18 +61,18 @@ use PDOStatement;
 class PDOTableModel implements iDatabaseTableModel
 {
     /**
-     * Holds the FuzeWorks Database loader
-     *
-     * @var Database
-     */
-    private $databases;
-
-    /**
      * Holds the PDOEngine for this model
      *
      * @var PDOEngine
      */
     protected $dbEngine;
+
+    /**
+     * Whether the tableModel has been properly setup
+     *
+     * @var bool
+     */
+    protected $setup = false;
 
     /**
      * The table this model manages on the database
@@ -91,24 +89,32 @@ class PDOTableModel implements iDatabaseTableModel
     protected $lastStatement;
 
     /**
-     * Initializes the model to connect with the database.
+     * Initializes the model
      *
-     * @param string $connectionName
-     * @param array $parameters
-     * @param string|null $tableName
-     * @throws DatabaseException
-     * @see PDOEngine::setUp()
+     * @param iDatabaseEngine $engine
+     * @param string $tableName
      */
-    public function __construct(string $connectionName = 'default', array $parameters = [], string $tableName = 'default')
+    public function setUp(iDatabaseEngine $engine, string $tableName)
     {
-        if (is_null($this->databases))
-            $this->databases = Factory::getInstance()->databases;
-
-        $this->dbEngine = $this->databases->get($connectionName, 'pdo', $parameters);
+        $this->dbEngine = $engine;
         $this->tableName = $tableName;
+        $this->setup = true;
+    }
+
+    public function isSetup(): bool
+    {
+        return $this->setup;
     }
 
     public function getName(): string
+    {
+        return 'pdo';
+    }
+
+    /**
+     * @return string
+     */
+    public function getEngineName(): string
     {
         return 'pdo';
     }

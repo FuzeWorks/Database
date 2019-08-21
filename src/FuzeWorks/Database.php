@@ -39,8 +39,12 @@ use FuzeWorks\DatabaseEngine\iDatabaseEngine;
 use FuzeWorks\DatabaseEngine\MongoEngine;
 use FuzeWorks\DatabaseEngine\PDOEngine;
 use FuzeWorks\Event\DatabaseLoadDriverEvent;
+use FuzeWorks\Event\DatabaseLoadTableModelEvent;
 use FuzeWorks\Exception\DatabaseException;
 use FuzeWorks\Exception\EventException;
+use FuzeWorks\Model\iDatabaseTableModel;
+use FuzeWorks\Model\MongoTableModel;
+use FuzeWorks\Model\PDOTableModel;
 
 /**
  * Database loading class
@@ -69,6 +73,13 @@ class Database
     protected $engines = [];
 
     /**
+     * All tableModels that can be used for connections
+     *
+     * @var iDatabaseTableModel[]
+     */
+    protected $tableModels = [];
+
+    /**
      * Whether all DatabaseEngines have been loaded yet
      *
      * @var bool
@@ -76,11 +87,18 @@ class Database
     protected $enginesLoaded = false;
 
     /**
-     * Array of all the non-default databases
+     * Array of all the database engines
      *
      * @var iDatabaseEngine[]
      */    
     protected $connections = [];
+
+    /**
+     * Array of all the tableModels
+     *
+     * @var iDatabaseTableModel[]
+     */
+    protected $tables;
     
     /**
      * Register with the TracyBridge upon startup
@@ -142,7 +160,7 @@ class Database
         elseif (!empty($event->engineName) && !empty($event->parameters))
         {
             // Do provided config third
-            $engineClass = get_class($this->getEngine($event->engineName));
+            $engineClass = get_class($this->fetchEngine($event->engineName));
             $engine = $this->connections[$event->connectionName] = new $engineClass();
             $engine->setUp($event->parameters);
         }
@@ -153,7 +171,7 @@ class Database
                 throw new DatabaseException("Could not get database. Database not found in config.");
 
             $engineName = $this->dbConfig['connections'][$event->connectionName]['engineName'];
-            $engineClass = get_class($this->getEngine($engineName));
+            $engineClass = get_class($this->fetchEngine($engineName));
             $engine = $this->connections[$event->connectionName] = new $engineClass();
             $engine->setUp($this->dbConfig['connections'][$event->connectionName]);
         }
@@ -166,19 +184,64 @@ class Database
     }
 
     /**
+     * @param string $tableName
+     * @param string $tableModelName
+     * @param string $connectionName
+     * @param array $parameters
+     * @return iDatabaseTableModel
+     * @throws DatabaseException
+     */
+    public function getTableModel(string $tableName, string $tableModelName, string $connectionName = 'default', array $parameters = []): iDatabaseTableModel
+    {
+        try {
+            /** @var DatabaseLoadTableModelEvent $event */
+            $event = Events::fireEvent('databaseLoadTableModelEvent', strtolower($tableModelName), $parameters, $connectionName, $tableName);
+        } catch (EventException $e) {
+            throw new DatabaseException("Could not get TableModel. databaseLoadTableModelEvent threw exception: '" . $e->getMessage() . "'");
+        }
+
+        if ($event->isCancelled())
+            throw new DatabaseException("Could not get TableModel. Cancelled by databaseLoadTableModelEvent.");
+
+        /** @var iDatabaseTableModel $tableModel */
+        // If a TableModel is provided by the event, use that. Otherwise search in the list of tableModels
+        if (is_object($event->tableModel) && $event->tableModel instanceof iDatabaseTableModel)
+        {
+            $tableModel = $this->tables[$event->connectionName . "|" . $event->tableName] = $event->tableModel;
+            if (!$tableModel->setup())
+                $tableModel->setUp($this->get($event->connectionName, $tableModel->getEngineName(), $event->parameters), $event->tableName);
+        }
+        // If the connection already exists, use that
+        elseif (isset($this->tables[$event->connectionName . "|" . $event->tableName]))
+        {
+            $tableModel = $this->tables[$event->connectionName . "|" . $event->tableName];
+        }
+        // Otherwise use the provided configuration
+        else
+        {
+            $tableModelClass = get_class($this->fetchTableModel($event->tableModelName));
+            $tableModel = $this->tables[$event->connectionName . "|" . $event->tableName] = new $tableModelClass();
+            $tableModel->setUp($this->get($event->connectionName, $tableModel->getEngineName(), $event->parameters), $event->tableName);
+        }
+
+        // And return the tableModel
+        return $tableModel;
+    }
+
+    /**
      * Get a loaded database engine.
      *
      * @param string $engineName
      * @return iDatabaseEngine
      * @throws DatabaseException
      */
-    public function getEngine(string $engineName): iDatabaseEngine
+    public function fetchEngine(string $engineName): iDatabaseEngine
     {
         // First retrieve the name
         $engineName = strtolower($engineName);
 
         // Then load all engines
-        $this->loadDatabaseEngines();
+        $this->loadDatabaseComponents();
 
         // If the engine exists, return it
         if (isset($this->engines[$engineName]))
@@ -186,6 +249,29 @@ class Database
 
         // Otherwise throw exception
         throw new DatabaseException("Could not get engine. Engine does not exist.");
+    }
+
+    /**
+     * Fetch a loaded TableModel
+     *
+     * @param string $tableModelName
+     * @return iDatabaseTableModel
+     * @throws DatabaseException
+     */
+    public function fetchTableModel(string $tableModelName): iDatabaseTableModel
+    {
+        // First retrieve the name
+        $tableModelName = strtolower($tableModelName);
+
+        // Then load all the tableModels
+        $this->loadDatabaseComponents();
+
+        // If the tableModel exists, return it
+        if (isset($this->tableModels[$tableModelName]))
+            return $this->tableModels[$tableModelName];
+
+        // Otherwise throw an exception
+        throw new DatabaseException("Could not get tableModel. TableModel does not exist.");
     }
 
     /**
@@ -213,12 +299,35 @@ class Database
     }
 
     /**
+     * Register a new database tableModel
+     *
+     * @param iDatabaseTableModel $tableModel
+     * @return bool
+     * @throws DatabaseException
+     */
+    public function registerTableModel(iDatabaseTableModel $tableModel): bool
+    {
+        // First retrieve the name
+        $tableModelName = strtolower($tableModel->getName());
+
+        // Check if the tableModel is already set
+        if (isset($this->tableModels[$tableModelName]))
+            throw new DatabaseException("Could not register tableModel. TableModel '" . $tableModelName . "' already registered.");
+
+        // Install it
+        $this->tableModels[$tableModelName] = $tableModel;
+        Logger::log("Registered TableModel type: '" . $tableModelName . "'");
+
+        return true;
+    }
+
+    /**
      * Load all databaseEngines by firing a databaseLoadEngineEvent and by loading all the default engines
      *
      * @return bool
      * @throws DatabaseException
      */
-    protected function loadDatabaseEngines(): bool
+    protected function loadDatabaseComponents(): bool
     {
         // If already loaded, skip
         if ($this->enginesLoaded)
@@ -234,6 +343,10 @@ class Database
         // Load the engines provided by the DatabaseComponent
         $this->registerEngine(new PDOEngine());
         $this->registerEngine(new MongoEngine());
+
+        // Load the tableModels provided by the DatabaseComponent
+        $this->registerTableModel(new PDOTableModel());
+        $this->registerTableModel(new MongoTableModel());
 
         // And save results
         $this->enginesLoaded = true;

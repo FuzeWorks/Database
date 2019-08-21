@@ -37,6 +37,7 @@
 namespace FuzeWorks\Model;
 
 
+use FuzeWorks\DatabaseEngine\iDatabaseEngine;
 use FuzeWorks\Exception\DatabaseException;
 
 interface iDatabaseTableModel
@@ -45,6 +46,15 @@ interface iDatabaseTableModel
      * @return string
      */
     public function getName(): string;
+
+    /**
+     * @return string
+     */
+    public function getEngineName(): string;
+
+    public function setUp(iDatabaseEngine $engine, string $tableName);
+
+    public function isSetup(): bool;
 
     /**
      * @param array $data

@@ -36,9 +36,9 @@
 
 namespace FuzeWorks\Model;
 use FuzeWorks\Database;
+use FuzeWorks\DatabaseEngine\iDatabaseEngine;
 use FuzeWorks\DatabaseEngine\MongoEngine;
 use FuzeWorks\Exception\DatabaseException;
-use FuzeWorks\Factory;
 use MongoDB\Collection;
 
 class MongoTableModel implements iDatabaseTableModel
@@ -50,6 +50,13 @@ class MongoTableModel implements iDatabaseTableModel
      * @var Database
      */
     private $databases;
+
+    /**
+     * Whether the tableModel has been properly setup
+     *
+     * @var bool
+     */
+    protected $setup = false;
 
     /**
      * Holds the PDOEngine for this model
@@ -66,24 +73,22 @@ class MongoTableModel implements iDatabaseTableModel
     protected $collection;
 
     /**
-     * Initializes the model to connect with the database.
+     * Initializes the model
      *
-     * @param string $connectionName
-     * @param array $parameters
+     * @param iDatabaseEngine $engine
      * @param string $tableName
      * @throws DatabaseException
-     * @see MongoEngine::setUp()
      */
-    public function __construct(string $connectionName = 'default', array $parameters = [], string $tableName = 'default.default')
+    public function setUp(iDatabaseEngine $engine, string $tableName)
     {
-        if (is_null($this->databases))
-            $this->databases = Factory::getInstance()->databases;
-
-        // Load databaseEngine
-        $this->dbEngine = $this->databases->get($connectionName, 'mongo', $parameters);
-
-        // Determine the collection
+        $this->dbEngine = $engine;
         $this->collection = $this->getCollection($tableName);
+        $this->setup = true;
+    }
+
+    public function isSetup(): bool
+    {
+        return $this->setup;
     }
 
     /**
@@ -105,6 +110,14 @@ class MongoTableModel implements iDatabaseTableModel
      * @return string
      */
     public function getName(): string
+    {
+        return 'mongo';
+    }
+
+    /**
+     * @return string
+     */
+    public function getEngineName(): string
     {
         return 'mongo';
     }

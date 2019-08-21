@@ -133,8 +133,6 @@ class DatabaseTracyBridge implements IBarPanel
             $results = array_slice($results, -10);
         }
 
-		//dump($results['queries']['mysql:host=localhost;dbname=hello']);
-
 		return $this->results = $results;
 	}
 

@@ -36,12 +36,11 @@
 
 namespace FuzeWorks\Model;
 
-use FuzeWorks\Database;
+use FuzeWorks\DatabaseEngine\iDatabaseEngine;
 use FuzeWorks\DatabaseEngine\PDOEngine;
 use FuzeWorks\DatabaseEngine\PDOStatementWrapper;
 use FuzeWorks\Exception\DatabaseException;
-use FuzeWorks\Exception\EventException;
-use FuzeWorks\Factory;
+use FuzeWorks\Exception\TransactionException;
 use PDO;
 use PDOStatement;
 
@@ -53,10 +52,6 @@ use PDOStatement;
  * The following additional methods can be accessed through the __call method
  * @method PDOStatement query(string $sql)
  * @method PDOStatementWrapper prepare(string $statement, array $driver_options = [])
- * @method bool transactionStart()
- * @method bool transactionEnd()
- * @method bool transactionCommit()
- * @method bool transactionRollback()
  * @method bool exec(string $statement)
  * @method mixed getAttribute(int $attribute)
  * @method string lastInsertId(string $name = null)
@@ -66,18 +61,18 @@ use PDOStatement;
 class PDOTableModel implements iDatabaseTableModel
 {
     /**
-     * Holds the FuzeWorks Database loader
-     *
-     * @var Database
-     */
-    private $databases;
-
-    /**
      * Holds the PDOEngine for this model
      *
      * @var PDOEngine
      */
     protected $dbEngine;
+
+    /**
+     * Whether the tableModel has been properly setup
+     *
+     * @var bool
+     */
+    protected $setup = false;
 
     /**
      * The table this model manages on the database
@@ -94,29 +89,52 @@ class PDOTableModel implements iDatabaseTableModel
     protected $lastStatement;
 
     /**
-     * Initializes the model to connect with the database.
+     * Initializes the model
      *
-     * @param string $connectionName
-     * @param array $parameters
-     * @param string|null $tableName
-     * @throws DatabaseException
-     * @throws EventException
-     * @see PDOEngine::setUp()
+     * @param iDatabaseEngine $engine
+     * @param string $tableName
      */
-    public function __construct(string $connectionName = 'default', array $parameters = [], string $tableName = null)
+    public function setUp(iDatabaseEngine $engine, string $tableName)
     {
-        if (is_null($this->databases))
-            $this->databases = Factory::getInstance()->databases;
-
-        $this->dbEngine = $this->databases->get($connectionName, 'pdo', $parameters);
+        $this->dbEngine = $engine;
         $this->tableName = $tableName;
+        $this->setup = true;
     }
 
-    public function create(array $data, array $options = []): bool
+    public function isSetup(): bool
+    {
+        return $this->setup;
+    }
+
+    public function getName(): string
+    {
+        return 'pdo';
+    }
+
+    /**
+     * @return string
+     */
+    public function getEngineName(): string
+    {
+        return 'pdo';
+    }
+
+    /**
+     * @param array $data
+     * @param array $options
+     * @param string $table
+     * @return int
+     * @throws DatabaseException
+     */
+    public function create(array $data, array $options = [], string $table = 'default'): int
     {
         // If no data is provided, stop now
         if (empty($data))
             throw new DatabaseException("Could not create data. No data provided.");
+
+        // Select table
+        if ($table == 'default')
+            $table = $this->tableName;
 
         // Determine which fields will be inserted
         $fieldsArr = $this->createFields($data);
@@ -124,7 +142,7 @@ class PDOTableModel implements iDatabaseTableModel
         $values = $fieldsArr['values'];
 
         // Generate the sql and create a PDOStatement
-        $sql = "INSERT INTO {$this->tableName} ({$fields}) VALUES ({$values})";
+        $sql = "INSERT INTO {$table} ({$fields}) VALUES ({$values})";
 
         /** @var PDOStatement $statement */
         $this->lastStatement = $this->dbEngine->prepare($sql);
@@ -137,7 +155,7 @@ class PDOTableModel implements iDatabaseTableModel
                 $this->lastStatement->execute($record);
 
         // And return true for success
-        return true;
+        return $this->lastStatement->rowCount();
     }
 
     /**
@@ -145,22 +163,46 @@ class PDOTableModel implements iDatabaseTableModel
      *
      * @param array $filter
      * @param array $options
+     * @param string $table
      * @return array
      * @throws DatabaseException
      */
-    public function read(array $filter = [], array $options = []): array
+    public function read(array $filter = [], array $options = [], string $table = 'default'): array
     {
+        // Select table
+        if ($table == 'default')
+            $table = $this->tableName;
+
         // Determine which fields to select. If none provided, select all
         $fields = (isset($options['fields']) && is_array($options['fields']) ? implode(',', $options['fields']) : '*');
 
         // Apply the filter. If none provided, don't condition it
         $where = $this->filter($filter);
 
+        // If a JOIN is provided, create the statement
+        if (isset($options['join']))
+        {
+            $joinType = (isset($options['join']['joinType']) ? strtoupper($options['join']['joinType']) : 'LEFT');
+            $targetTable = (isset($options['join']['targetTable']) ? $options['join']['targetTable'] : null);
+            $targetField = (isset($options['join']['targetField']) ? $options['join']['targetField'] : null);
+            $sourceField = (isset($options['join']['sourceField']) ? $options['join']['sourceField'] : null);
+            if (is_null($targetTable) || is_null($targetField) || is_null($sourceField))
+                throw new DatabaseException("Could not read from '" . $table . "'. Missing fields in join options.");
+
+            $join = "{$joinType} JOIN {$targetTable} ON {$table}.{$sourceField} = {$targetTable}.{$targetField}";
+        }
+        else
+            $join = '';
+
         // Generate the sql and create a PDOStatement
-        $sql = "SELECT " . $fields . " FROM {$this->tableName} " . $where;
+        $sql = "SELECT " . $fields . " FROM {$table} {$join} " . $where;
 
         /** @var PDOStatement $statement */
         $this->lastStatement = $this->dbEngine->prepare($sql);
+
+        // Return prepared statement, if requested to do so
+        if (isset($options['returnPreparedStatement']) && $options['returnPreparedStatement'] == true)
+            return [];
 
         // And execute the query
         $this->lastStatement->execute($filter);
@@ -173,11 +215,15 @@ class PDOTableModel implements iDatabaseTableModel
         return $this->lastStatement->fetchAll($fetchMode);
     }
 
-    public function update(array $data, array $filter, array $options = []): bool
+    public function update(array $data, array $filter, array $options = [], string $table = 'default'): int
     {
         // If no data is provided, stop now
         if (empty($data))
             throw new DatabaseException("Could not update data. No data provided.");
+
+        // Select table
+        if ($table == 'default')
+            $table = $this->tableName;
 
         // Apply the filter
         $where = $this->filter($filter);
@@ -189,7 +235,7 @@ class PDOTableModel implements iDatabaseTableModel
         $fields = implode(', ', $fields);
 
         // Generate the sql and create a PDOStatement
-        $sql = "UPDATE {$this->tableName} SET {$fields} {$where}";
+        $sql = "UPDATE {$table} SET {$fields} {$where}";
 
         /** @var PDOStatement $statement */
         $this->lastStatement = $this->dbEngine->prepare($sql);
@@ -201,16 +247,20 @@ class PDOTableModel implements iDatabaseTableModel
         $this->lastStatement->execute($parameters);
 
         // And return true for success
-        return true;
+        return $this->lastStatement->rowCount();
     }
 
-    public function delete(array $filter, array $options = []): bool
+    public function delete(array $filter, array $options = [], string $table = 'default'): int
     {
+        // Select table
+        if ($table == 'default')
+            $table = $this->tableName;
+
         // Apply the filter
         $where = $this->filter($filter);
 
         // Generate the sql and create a PDOStatement
-        $sql = "DELETE FROM {$this->tableName} " . $where;
+        $sql = "DELETE FROM {$table} " . $where;
 
         /** @var PDOStatement $statement */
         $this->lastStatement = $this->dbEngine->prepare($sql);
@@ -219,12 +269,48 @@ class PDOTableModel implements iDatabaseTableModel
         $this->lastStatement->execute($filter);
 
         // And return true for success
-        return true;
+        return $this->lastStatement->rowCount();
     }
 
     public function getLastStatement(): PDOStatementWrapper
     {
         return $this->lastStatement;
+    }
+
+    /**
+     * @return bool
+     * @throws TransactionException
+     */
+    public function transactionStart(): bool
+    {
+        return $this->dbEngine->transactionStart();
+    }
+
+    /**
+     * @return bool
+     * @throws TransactionException
+     */
+    public function transactionEnd(): bool
+    {
+        return $this->dbEngine->transactionEnd();
+    }
+
+    /**
+     * @return bool
+     * @throws TransactionException
+     */
+    public function transactionCommit(): bool
+    {
+        return $this->dbEngine->transactionCommit();
+    }
+
+    /**
+     * @return bool
+     * @throws TransactionException
+     */
+    public function transactionRollback(): bool
+    {
+        return $this->dbEngine->transactionRollback();
     }
 
     /**

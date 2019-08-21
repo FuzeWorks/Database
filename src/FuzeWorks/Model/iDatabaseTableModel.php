@@ -37,10 +37,79 @@
 namespace FuzeWorks\Model;
 
 
+use FuzeWorks\DatabaseEngine\iDatabaseEngine;
+use FuzeWorks\Exception\DatabaseException;
+
 interface iDatabaseTableModel
 {
-    public function create(array $data, array $options = []): bool;
-    public function read(array $filter = [], array $options = []): array;
-    public function update(array $data, array $filter, array $options = []): bool;
-    public function delete(array $filter, array $options = []): bool;
+    /**
+     * @return string
+     */
+    public function getName(): string;
+
+    /**
+     * @return string
+     */
+    public function getEngineName(): string;
+
+    public function setUp(iDatabaseEngine $engine, string $tableName);
+
+    public function isSetup(): bool;
+
+    /**
+     * @param array $data
+     * @param array $options
+     * @param string $table
+     * @return int
+     * @throws DatabaseException
+     */
+    public function create(array $data, array $options = [], string $table = 'default'): int;
+
+    /**
+     * @param array $filter
+     * @param array $options
+     * @param string $table
+     * @return array
+     * @throws DatabaseException
+     */
+    public function read(array $filter = [], array $options = [], string $table = 'default'): array;
+
+    /**
+     * @param array $data
+     * @param array $filter
+     * @param array $options
+     * @param string $table
+     * @return int
+     * @throws DatabaseException
+     */
+    public function update(array $data, array $filter, array $options = [], string $table = 'default'): int;
+
+    /**
+     * @param array $filter
+     * @param array $options
+     * @param string $table
+     * @return int
+     * @throws DatabaseException
+     */
+    public function delete(array $filter, array $options = [], string $table = 'default'): int;
+
+    /**
+     * @return bool
+     */
+    public function transactionStart(): bool;
+
+    /**
+     * @return bool
+     */
+    public function transactionEnd(): bool;
+
+    /**
+     * @return bool
+     */
+    public function transactionCommit(): bool;
+
+    /**
+     * @return bool
+     */
+    public function transactionRollback(): bool;
 }

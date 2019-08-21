@@ -34,34 +34,57 @@
  * @version Version 1.2.0
  */
 
-namespace FuzeWorks\DatabaseEngine;
+namespace FuzeWorks\Event;
+use FuzeWorks\Event;
+use FuzeWorks\Model\iDatabaseTableModel;
 
-
-interface iDatabaseEngine
+class DatabaseLoadTableModelEvent extends Event
 {
-    public function getName(): string;
-    public function getConnectionDescription(): string;
-    public function isSetup(): bool;
-    public function setUp(array $parameters): bool;
-    public function tearDown(): bool;
+    /**
+     * A possible database that can be loaded.
+     *
+     * Provide a database in this variable and it will be loaded. It shall be identified as default if
+     * the parameters variable is empty. If there is a string in parameters this database shall be identified as
+     * such.
+     *
+     * @var iDatabaseTableModel|null
+     */
+    public $tableModel = null;
 
     /**
-     * @return bool
+     * The name of the engine to be loaded
+     *
+     * @var string
      */
-    public function transactionStart(): bool;
+    public $tableModelName;
 
     /**
-     * @return bool
+     * The name of the table this model manages
+     *
+     * @var string
      */
-    public function transactionEnd(): bool;
+    public $tableName;
 
     /**
-     * @return bool
+     * Parameters of the database to be loaded
+     *
+     * @var array
      */
-    public function transactionCommit(): bool;
+    public $parameters;
 
     /**
-     * @return bool
+     * Database group to load
+     *
+     * @var bool
      */
-    public function transactionRollback(): bool;
+    public $connectionName;
+
+
+    public function init(string $tableModelName, array $parameters, string $connectionName, string $tableName)
+    {
+        $this->tableModelName = $tableModelName;
+        $this->parameters = $parameters;
+        $this->connectionName = $connectionName;
+        $this->tableName = $tableName;
+    }
 }

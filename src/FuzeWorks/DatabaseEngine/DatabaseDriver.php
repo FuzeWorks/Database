@@ -39,7 +39,7 @@ namespace FuzeWorks\DatabaseEngine;
 /**
  * Class DatabaseDriver
  */
-abstract class DatabaseDriver
+abstract class DatabaseDriver implements iDatabaseEngine
 {
 
     // --- Query Logging --------------------------------------------------
@@ -80,7 +80,6 @@ abstract class DatabaseDriver
     }
 
     // --------------------------------------------------------------------
-
 
 
 }

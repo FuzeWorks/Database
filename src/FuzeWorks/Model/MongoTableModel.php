@@ -123,6 +123,18 @@ class MongoTableModel implements iDatabaseTableModel
     }
 
     /**
+     * @return iDatabaseEngine
+     * @throws DatabaseException
+     */
+    public function getEngine(): iDatabaseEngine
+    {
+        if (!$this->setup)
+            throw new DatabaseException("Could not return Engine. Engine not setup yet.");
+
+        return $this->dbEngine;
+    }
+
+    /**
      * @param array $data
      * @param array $options
      * @param string $table
@@ -158,7 +170,7 @@ class MongoTableModel implements iDatabaseTableModel
      * @return array
      * @throws DatabaseException
      */
-    public function read(array $filter = [], array $options = [], string $table = 'default'): array
+    public function read(array $filter = [], array $options = [], string $table = 'default'): TableModelResult
     {
         // Select collection
         if ($table == 'default')

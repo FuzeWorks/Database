@@ -38,6 +38,7 @@ namespace FuzeWorks\DatabaseEngine;
 use FuzeWorks\Exception\DatabaseException;
 use FuzeWorks\Exception\TransactionException;
 use FuzeWorks\Logger;
+use FuzeWorks\Model\iDatabaseTableModel;
 use PDO;
 use PDOException;
 use PDOStatement;
@@ -52,7 +53,7 @@ use PDOStatement;
  * @method string quote(string $string, int $parameter_type = PDO::PARAM_STR)
  * @method bool setAttribute(int $attribute, mixed $value)
  */
-class PDOEngine extends DatabaseDriver implements iDatabaseEngine
+class PDOEngine extends DatabaseDriver
 {
 
     /**
@@ -164,7 +165,7 @@ class PDOEngine extends DatabaseDriver implements iDatabaseEngine
         // Commit or rollback all changes to the database
         $this->transactionEnd();
 
-        //
+        // And close the connection
         $this->pdoConnection = null;
         return true;
     }

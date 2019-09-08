@@ -66,7 +66,7 @@ use MongoDB\Model\DatabaseInfoIterator;
  * @method Session startSession(array $options = [])
  * @method ChangeStream watch(array $pipeline = [], array $options = [])
  */
-class MongoEngine extends DatabaseDriver implements iDatabaseEngine
+class MongoEngine extends DatabaseDriver
 {
 
     /**

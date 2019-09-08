@@ -35,80 +35,120 @@
  */
 
 namespace FuzeWorks\Model;
-
-
 use FuzeWorks\DatabaseEngine\iDatabaseEngine;
 use FuzeWorks\Exception\DatabaseException;
 
 interface iDatabaseTableModel
 {
     /**
+     * Returns the name of the TableModel.
+     *
+     * Usually 'pdo' or 'mongo'.
+     *
      * @return string
      */
     public function getName(): string;
 
     /**
+     * Return the name of the engine used by this TableModel.
+     *
+     * Usually 'pdo' or 'mongo'
+     *
      * @return string
      */
     public function getEngineName(): string;
 
+    /**
+     * Return the engine used by this TableModel
+     *
+     * @return iDatabaseEngine
+     */
+    public function getEngine(): iDatabaseEngine;
+
+    /**
+     * Method invoked by FuzeWorks\Database to setup this tableModel.
+     *
+     * Provides the TableModel with the appropriate iDatabaseEngine and the name of the table.
+     *
+     * @param iDatabaseEngine $engine
+     * @param string $tableName
+     * @return mixed
+     */
     public function setUp(iDatabaseEngine $engine, string $tableName);
 
+    /**
+     * Returns whether the TableModel has been setup yet
+     *
+     * @return bool
+     */
     public function isSetup(): bool;
 
     /**
+     * Creates data in the model.
+     *
      * @param array $data
      * @param array $options
-     * @param string $table
      * @return int
      * @throws DatabaseException
      */
-    public function create(array $data, array $options = [], string $table = 'default'): int;
+    public function create(array $data, array $options = []): int;
 
     /**
+     * Returns data from the model in the form of a TableModelResult
+     *
      * @param array $filter
      * @param array $options
-     * @param string $table
-     * @return array
+     * @return TableModelResult
      * @throws DatabaseException
+     * @see TableModelResult
      */
-    public function read(array $filter = [], array $options = [], string $table = 'default'): array;
+    public function read(array $filter = [], array $options = []): TableModelResult;
 
     /**
+     * Updates data in the model
+     *
      * @param array $data
      * @param array $filter
      * @param array $options
-     * @param string $table
      * @return int
      * @throws DatabaseException
      */
-    public function update(array $data, array $filter, array $options = [], string $table = 'default'): int;
+    public function update(array $data, array $filter, array $options = []): int;
 
     /**
+     * Deletes data from the model
+     *
      * @param array $filter
      * @param array $options
-     * @param string $table
      * @return int
      * @throws DatabaseException
      */
-    public function delete(array $filter, array $options = [], string $table = 'default'): int;
+    public function delete(array $filter, array $options = []): int;
 
     /**
+     * Starts a transaction in the model when supported
+     *
      * @return bool
      */
     public function transactionStart(): bool;
 
     /**
+     * Ends a transaction in the model when supported
+     *
      * @return bool
      */
     public function transactionEnd(): bool;
 
     /**
+     * Commits changes in the model when supported
+     *
      * @return bool
      */
     public function transactionCommit(): bool;
 
     /**
+     * Rolls back changes in the modle when supported
+     *
      * @return bool
      */
     public function transactionRollback(): bool;

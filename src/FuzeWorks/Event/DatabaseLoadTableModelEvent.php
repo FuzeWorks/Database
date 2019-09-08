@@ -56,7 +56,7 @@ class DatabaseLoadTableModelEvent extends Event
      *
      * @var string
      */
-    public $tableModelName;
+    public $engineName;
 
     /**
      * The name of the table this model manages
@@ -80,9 +80,9 @@ class DatabaseLoadTableModelEvent extends Event
     public $connectionName;
 
 
-    public function init(string $tableModelName, array $parameters, string $connectionName, string $tableName)
+    public function init(string $engineName, array $parameters, string $connectionName, string $tableName)
     {
-        $this->tableModelName = $tableModelName;
+        $this->engineName = $engineName;
         $this->parameters = $parameters;
         $this->connectionName = $connectionName;
         $this->tableName = $tableName;

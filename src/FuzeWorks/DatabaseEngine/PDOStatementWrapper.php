@@ -119,6 +119,16 @@ class PDOStatementWrapper
     }
 
     /**
+     * Retrieves the statement last used
+     *
+     * @return PDOStatement
+     */
+    public function getStatement(): PDOStatement
+    {
+        return $this->statement;
+    }
+
+    /**
      * Generates an error message for the last failure in PDO
      *
      * @return array
@@ -146,5 +156,4 @@ class PDOStatementWrapper
     {
         return $this->statement->$name;
     }
-
 }

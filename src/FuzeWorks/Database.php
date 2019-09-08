@@ -185,17 +185,17 @@ class Database
 
     /**
      * @param string $tableName
-     * @param string $tableModelName
      * @param string $connectionName
+     * @param string $engineName
      * @param array $parameters
      * @return iDatabaseTableModel
      * @throws DatabaseException
      */
-    public function getTableModel(string $tableName, string $tableModelName, string $connectionName = 'default', array $parameters = []): iDatabaseTableModel
+    public function getTableModel(string $tableName, string $connectionName = 'default', string $engineName = '', array $parameters = []): iDatabaseTableModel
     {
         try {
             /** @var DatabaseLoadTableModelEvent $event */
-            $event = Events::fireEvent('databaseLoadTableModelEvent', strtolower($tableModelName), $parameters, $connectionName, $tableName);
+            $event = Events::fireEvent('databaseLoadTableModelEvent', strtolower($engineName), $parameters, $connectionName, $tableName);
         } catch (EventException $e) {
             throw new DatabaseException("Could not get TableModel. databaseLoadTableModelEvent threw exception: '" . $e->getMessage() . "'");
         }
@@ -208,7 +208,7 @@ class Database
         if (is_object($event->tableModel) && $event->tableModel instanceof iDatabaseTableModel)
         {
             $tableModel = $this->tables[$event->connectionName . "|" . $event->tableName] = $event->tableModel;
-            if (!$tableModel->setup())
+            if (!$tableModel->isSetup())
                 $tableModel->setUp($this->get($event->connectionName, $tableModel->getEngineName(), $event->parameters), $event->tableName);
         }
         // If the connection already exists, use that
@@ -219,9 +219,13 @@ class Database
         // Otherwise use the provided configuration
         else
         {
-            $tableModelClass = get_class($this->fetchTableModel($event->tableModelName));
+            // First the engine shall be fetched, so the name of the tableModel is known
+            $engine = $this->get($event->connectionName, $event->engineName, $event->parameters);
+            $tableModelClass = get_class($this->fetchTableModel($engine->getName()));
+
+            // Load the tableModel and add the engine
             $tableModel = $this->tables[$event->connectionName . "|" . $event->tableName] = new $tableModelClass();
-            $tableModel->setUp($this->get($event->connectionName, $tableModel->getEngineName(), $event->parameters), $event->tableName);
+            $tableModel->setUp($engine, $event->tableName);
         }
 
         // And return the tableModel

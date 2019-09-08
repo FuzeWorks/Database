@@ -120,21 +120,28 @@ class PDOTableModel implements iDatabaseTableModel
     }
 
     /**
+     * @return iDatabaseEngine
+     * @throws DatabaseException
+     */
+    public function getEngine(): iDatabaseEngine
+    {
+        if (!$this->setup)
+            throw new DatabaseException("Could not return Engine. Engine not setup yet.");
+
+        return $this->dbEngine;
+    }
+
+    /**
      * @param array $data
      * @param array $options
-     * @param string $table
      * @return int
      * @throws DatabaseException
      */
-    public function create(array $data, array $options = [], string $table = 'default'): int
+    public function create(array $data, array $options = []): int
     {
         // If no data is provided, stop now
         if (empty($data))
             throw new DatabaseException("Could not create data. No data provided.");
-
-        // Select table
-        if ($table == 'default')
-            $table = $this->tableName;
 
         // Determine which fields will be inserted
         $fieldsArr = $this->createFields($data);
@@ -142,7 +149,7 @@ class PDOTableModel implements iDatabaseTableModel
         $values = $fieldsArr['values'];
 
         // Generate the sql and create a PDOStatement
-        $sql = "INSERT INTO {$table} ({$fields}) VALUES ({$values})";
+        $sql = "INSERT INTO {$this->tableName} ({$fields}) VALUES ({$values})";
 
         /** @var PDOStatement $statement */
         $this->lastStatement = $this->dbEngine->prepare($sql);
@@ -159,71 +166,37 @@ class PDOTableModel implements iDatabaseTableModel
     }
 
     /**
-     * @todo: WRITE ABOUT FETCHMODE
-     *
      * @param array $filter
      * @param array $options
-     * @param string $table
-     * @return array
+     * @return TableModelResult
      * @throws DatabaseException
      */
-    public function read(array $filter = [], array $options = [], string $table = 'default'): array
+    public function read(array $filter = [], array $options = []): TableModelResult
     {
-        // Select table
-        if ($table == 'default')
-            $table = $this->tableName;
-
         // Determine which fields to select. If none provided, select all
         $fields = (isset($options['fields']) && is_array($options['fields']) ? implode(',', $options['fields']) : '*');
 
         // Apply the filter. If none provided, don't condition it
         $where = $this->filter($filter);
 
-        // If a JOIN is provided, create the statement
-        if (isset($options['join']))
-        {
-            $joinType = (isset($options['join']['joinType']) ? strtoupper($options['join']['joinType']) : 'LEFT');
-            $targetTable = (isset($options['join']['targetTable']) ? $options['join']['targetTable'] : null);
-            $targetField = (isset($options['join']['targetField']) ? $options['join']['targetField'] : null);
-            $sourceField = (isset($options['join']['sourceField']) ? $options['join']['sourceField'] : null);
-            if (is_null($targetTable) || is_null($targetField) || is_null($sourceField))
-                throw new DatabaseException("Could not read from '" . $table . "'. Missing fields in join options.");
-
-            $join = "{$joinType} JOIN {$targetTable} ON {$table}.{$sourceField} = {$targetTable}.{$targetField}";
-        }
-        else
-            $join = '';
-
         // Generate the sql and create a PDOStatement
-        $sql = "SELECT " . $fields . " FROM {$table} {$join} " . $where;
+        $sql = "SELECT " . $fields . " FROM {$this->tableName} " . $where;
 
         /** @var PDOStatement $statement */
         $this->lastStatement = $this->dbEngine->prepare($sql);
 
-        // Return prepared statement, if requested to do so
-        if (isset($options['returnPreparedStatement']) && $options['returnPreparedStatement'] == true)
-            return [];
-
         // And execute the query
         $this->lastStatement->execute($filter);
 
-        // And return the result
-        $fetchMode = (isset($options['fetchMode']) ? $options['fetchMode'] : PDO::FETCH_ASSOC);
-        if (is_array($fetchMode))
-            return $this->lastStatement->fetchAll(...$fetchMode);
-
-        return $this->lastStatement->fetchAll($fetchMode);
+        // Fetch PDO Iterable
+        return new TableModelResult($this->lastStatement->getStatement());
     }
 
-    public function update(array $data, array $filter, array $options = [], string $table = 'default'): int
+    public function update(array $data, array $filter, array $options = []): int
     {
         // If no data is provided, stop now
         if (empty($data))
             throw new DatabaseException("Could not update data. No data provided.");
-
-        // Select table
-        if ($table == 'default')
-            $table = $this->tableName;
 
         // Apply the filter
         $where = $this->filter($filter);
@@ -235,7 +208,7 @@ class PDOTableModel implements iDatabaseTableModel
         $fields = implode(', ', $fields);
 
         // Generate the sql and create a PDOStatement
-        $sql = "UPDATE {$table} SET {$fields} {$where}";
+        $sql = "UPDATE {$this->tableName} SET {$fields} {$where}";
 
         /** @var PDOStatement $statement */
         $this->lastStatement = $this->dbEngine->prepare($sql);
@@ -250,17 +223,13 @@ class PDOTableModel implements iDatabaseTableModel
         return $this->lastStatement->rowCount();
     }
 
-    public function delete(array $filter, array $options = [], string $table = 'default'): int
+    public function delete(array $filter, array $options = []): int
     {
-        // Select table
-        if ($table == 'default')
-            $table = $this->tableName;
-
         // Apply the filter
         $where = $this->filter($filter);
 
         // Generate the sql and create a PDOStatement
-        $sql = "DELETE FROM {$table} " . $where;
+        $sql = "DELETE FROM {$this->tableName} " . $where;
 
         /** @var PDOStatement $statement */
         $this->lastStatement = $this->dbEngine->prepare($sql);
@@ -270,11 +239,6 @@ class PDOTableModel implements iDatabaseTableModel
 
         // And return true for success
         return $this->lastStatement->rowCount();
-    }
-
-    public function getLastStatement(): PDOStatementWrapper
-    {
-        return $this->lastStatement;
     }
 
     /**

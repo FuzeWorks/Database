@@ -184,17 +184,12 @@ class MongoCommandSubscriber implements CommandSubscriber
                 $queryData = count($event->getReply()->cursor->firstBatch);
                 break;
 
+            case 'update':
+            case 'delete':
             case 'insert':
                 $queryData = $event->getReply()->n;
                 break;
 
-            case 'update':
-                $queryData = $event->getReply()->n;
-                break;
-
-            case 'delete':
-                $queryData = $event->getReply()->n;
-                break;
         }
 
         // And log query

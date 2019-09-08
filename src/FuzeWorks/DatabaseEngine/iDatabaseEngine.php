@@ -36,7 +36,6 @@
 
 namespace FuzeWorks\DatabaseEngine;
 
-
 interface iDatabaseEngine
 {
     public function getName(): string;

@@ -15,13 +15,13 @@
   ],
   "require": {
     "php": ">=7.1.0",
-    "fuzeworks/core": "1.2.0-RC4",
-    "fuzeworks/mvcr": "1.2.0-RC4",
+    "fuzeworks/core": "1.2.0-RC5",
+    "fuzeworks/mvcr": "1.2.0-RC5",
     "ext-pdo": "*"
   },
   "require-dev": {
     "phpunit/phpunit": "^7",
-    "fuzeworks/tracycomponent": "1.2.0-RC4"
+    "fuzeworks/tracycomponent": "1.2.0-RC5"
   },
   "autoload": {
     "psr-4": {
